@@ -1,6 +1,7 @@
-#!/usr/bin/env python3.7
+#!/opt/websites/anaconda/bin/python3.7
 import cgi, os
 import sys
+import time
 import shutil
 import subprocess
 import math
@@ -25,6 +26,9 @@ ions_list=['HOH','AG1', 'AG', 'AL', 'AM', 'AS1', 'AS7', 'AS', 'AU1', 'AU2', 'AU'
       'PER', 'PI', 'PO3', 'PO4', 'SCN', 'SE4', 'SO3', 'SO4', 'TMA', 'VO4', 'YT3', 'ZCM', 'ZR']
 
 
+#os.system("find -mmin +20 -type d -exec rmdir !('tmp') > files_older_last_deleted 2>&1")
+#find dir_* -mmin +34 -type d -exec rm -r {} \;
+
 if __name__ == '__main__':
 	
 	form = cgi.FieldStorage()
@@ -35,22 +39,12 @@ if __name__ == '__main__':
 		lchain=form.getvalue('lchain')
 		sugar=form.getvalue('sugar')
 		method=1
-		print ('Content-Type: text/html\r\n')
-		print ('<html><head><title>Input error</title><body>Checking data</body></html>')
-		print (method)
-		print (chain)
-		print (lchain)
 	elif form.getvalue('fname')!='' and form.getvalue('chain')!='' and form.getvalue('lchain')=='' and form.getvalue('pdb')==b'':
 		pdb_id_up=form.getvalue('fname').upper()
 		chain=form.getvalue('chain')
 		lchain=form.getvalue('chain')
 		sugar=form.getvalue('sugar')
 		method=1
-		print ('Content-Type: text/html\r\n')
-		print ('<html><head><title>Input error</title><body>Checking data</body></html>')
-		print (method)
-		print (chain)
-		print (lchain)
 	elif form.getvalue('fname')=='' and form.getvalue('chain')!='' and form.getvalue('pdb')==b'':
 		print ('Content-Type: text/html\r\n')
 		print ('<html><head><title>Input error</title><body>PDB ID is missing</body></html>')
@@ -59,9 +53,20 @@ if __name__ == '__main__':
 		print ('Content-Type: text/html\r\n')
 		print ('<html><head><title>Input error</title><body>Chain ID is missing</body></html>')
 		exit()
-	elif form.getvalue('fname')=='' and form.getvalue('chain')!='' and form.getvalue('pdb')!=b'':
+	elif form.getvalue('fname')=='' and form.getvalue('chain')!='' and form.getvalue('lchain')!='' and form.getvalue('pdb')!=b'':
 		fileitem = form['pdb']
 		chain=form.getvalue('chain')
+		lchain=form.getvalue('lchain')
+		sugar=form.getvalue('sugar')
+		method=2
+		#print (fileitem.filename)
+		if fileitem.filename:
+			fn = os.path.basename(fileitem.filename)
+			open('tmp/' + fn, 'wb').write(fileitem.file.read())
+	elif form.getvalue('fname')=='' and form.getvalue('chain')!='' and form.getvalue('lchain')=='' and form.getvalue('pdb')!=b'':
+		fileitem = form['pdb']
+		chain=form.getvalue('chain')
+		lchain=form.getvalue('chain')
 		sugar=form.getvalue('sugar')
 		method=2
 		#print (fileitem.filename)
@@ -74,18 +79,23 @@ if __name__ == '__main__':
 		exit()
 	model=form.getvalue('complex_type')
 
+	if model=="None":
+		print ('Content-Type: text/html\r\n')
+		print ('<html><head><title>Please select the classfication model</title><body>Chain ID is missing</body></html>')
+		exit()
+
 	if model=='polysacc':
-		modeltype="Polysaccharide Classification"
+		modeltype="Oligosaccharide Classification"
 	elif model=='trisacc':
 		modeltype="Trisaccharide Classification"
 	elif model=='disacc':
 		modeltype="Disaccharide Classification"
 	elif model=='mosacmono':
-		modeltype="Monosaccharide-Monomer Classification"
+		modeltype="Monomer-Monosaccharide Classification"
 	elif model=='mosacdi':
-		modeltype="Monosaccharide-Dimer Classification"
+		modeltype="Dimer-Monosaccharide Classification"
 	elif model=='mosacoli':
-		modeltype="Monosaccharide-Oligomer Classification"
+		modeltype="Oligomer-Monosaccharide Classification"
 
 
 #########################################################################################################    Monosaccharide and Monomer      ###########################################################################################################
@@ -100,13 +110,14 @@ if __name__ == '__main__':
 			randname=uuid.uuid4().hex
 			path = os.path.join(dir_path, randname)
 			os.mkdir(path,0o777)
+			#os.system("chmod -R 777 {}".format(randname))
 			os.chdir(path)
 			os.system("wget 'https://files.rcsb.org/download/{}.pdb'".format(pdb_id_up))
 			os.system("cp ../foldx foldx")
 			os.system("cp ../naccess naccess")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 		elif method==2:
@@ -121,7 +132,7 @@ if __name__ == '__main__':
 			os.system("cp ../naccess naccess")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -133,7 +144,7 @@ if __name__ == '__main__':
 				i=i.rstrip()
 				if i[0:4]=='ATOM' and i[21] in chain:
 					atomrec.append(i)
-				elif i[0:6]=='HETATM' and i[21] in chain and i[17:20].strip() not in ions_list:
+				elif i[0:6]=='HETATM' and i[21] in lchain and i[17:20].strip() not in ions_list:
 					if sugar=='':
 						hetatmrec.append(i)
 					elif sugar!='':
@@ -145,7 +156,7 @@ if __name__ == '__main__':
 					rec.write("\n")
 			with open("{}_hetatom.pdb".format(pdb_id_up),'w') as hrec:
 				for k in hetatmrec:
-					if k[21] in chain:
+					if k[21] in lchain:
 						hrec.write(k)
 						hrec.write("\n")
 			hetfile=open("{}_hetatom.pdb".format(pdb_id_up)).readlines()
@@ -160,13 +171,13 @@ if __name__ == '__main__':
 				print ('</html>')
 				exit()
 			else:
-				redirectURL = "/cgi-bin/pred/%s/result.py" % randname
+				redirectURL = "/bioinfo2/cgi-bin/pcapred/%s/result.py" % randname
 				print ('Content-Type: text/html\r\n')
 				print ('<html>')
 				print ('  <head>')
-				#print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
+				print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
 				print ('    <title>You are going to be redirected</title>')
-				print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
+				#print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
 			combinedpdb=atomrec + hetatmrec
 			with open("{}_combined.pdb".format(pdb_id_up),'w') as crec:
 				for k in combinedpdb:
@@ -202,10 +213,9 @@ if __name__ == '__main__':
 					if round(distance,3)<3.5:
 						binres35.append(resname.strip()+str(position).strip()+"_"+chain)
 
-			binres35=sorted(set(binres35),key=lambda x:int(x[3:-2]))
-			binres5=sorted(set(binres5),key=lambda x:int(x[3:-2]))
+			binres35=sorted(set(binres35),key=lambda x:int(x.split("_")[0][3:]))
+			binres5=sorted(set(binres5),key=lambda x:int(x.split("_")[0][3:]))
 			binlig5=set(binlig5)
-			print (binlig5)
 			if pdb_id_up=='input':
 				resultout.write("User input")
 			else:
@@ -215,6 +225,11 @@ if __name__ == '__main__':
 			resultout.write("\n")
 			binlig5=",".join(binlig5)
 			resultout.write(str(binlig5))
+
+			resultout.write("\n")
+			lchains_cons=''.join(lchain)
+			resultout.write(str(lchains_cons))
+
 			allproatms=['O-', 'N+', 'C', 'O', 'N', 'S']
 			allhetatms=['C', 'F', 'H', 'CL', 'O', 'N', 'P', 'S']
 
@@ -309,8 +324,6 @@ if __name__ == '__main__':
 						copot5+=dictnor[y][4]
 						copot6+=dictnor[y][5]
 			selec_contact=['N+-O','O--C','O--O','O-C']
-
-			print (copot1, copot2, copot3, copot4, copot5, copot6)
 
 			c_no=contcombo.count('N+'+"-"+'O')
 			c_o_c=contcombo.count('O-'+"-"+'C')
@@ -454,7 +467,7 @@ if __name__ == '__main__':
 			predval= 0.10054837*(c_no)+0.22123107*(c_o_c)-0.28399224*(c_oo)-0.00769277*(copot4)+0.43737275*(energy_torsion_total)-0.5033322*(keyres_pci_5)+0.03146857*(totalside_rel_35)-0.03921815*(allatomcount_rel)+0.07307028*(c_oc)-2.7228043923750116
 			predval="%.2f" % predval
 			resultout.write("\n")
-			resultout.write(str(predval))
+			resultout.write(str(predval)+" ± 0.251")
 			disass= '{:.3g}'.format(math.exp(float(predval)/(0.0019*298.15)))
 			resultout.write("\n")
 			resultout.write(str(disass))
@@ -472,18 +485,18 @@ if __name__ == '__main__':
 			randname=uuid.uuid4().hex
 			path = os.path.join(dir_path, randname)
 			os.mkdir(path,0o777)
+			#os.system("chmod -R 777 {}".format(randname))
 			os.chdir(path)
 			os.system("wget 'https://files.rcsb.org/download/{}.pdb'".format(pdb_id_up))
 			os.system("cp ../foldx foldx")
 			os.system("cp ../naccess naccess")
 			os.system("cp ../plipcmd plipcmd")
-			os.system("cp ../3vvv.py 3vvv.py")
-			os.system("cp ../carb_features.py carb_features.py")
+			os.system("cp ../carb_features_new_rdkit.py carb_features_new_rdkit.py")
 			os.system("cp ../descp.py descp.py")
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -497,14 +510,14 @@ if __name__ == '__main__':
 			pdb_id_up='input'
 			os.system("cp ../foldx foldx")
 			os.system("cp ../naccess naccess")
+			os.system("chmod -R 777 naccess")
 			os.system("cp ../plipcmd plipcmd")
-			os.system("cp ../3vvv.py 3vvv.py")
-			os.system("cp ../carb_features.py carb_features.py")
+			os.system("cp ../carb_features_new_rdkit.py carb_features_new_rdkit.py")
 			os.system("cp ../descp.py descp.py")
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -517,7 +530,7 @@ if __name__ == '__main__':
 				i=i.rstrip()
 				if i[0:4]=='ATOM' and i[21] in chain:
 					atomrec.append(i)
-				elif i[0:6]=='HETATM' and i[21] in chain and i[17:20].strip() not in ions_list:
+				elif i[0:6]=='HETATM' and i[21] in lchain and i[17:20].strip() not in ions_list:
 					if sugar=='':
 						hetatmrec.append(i)
 					elif sugar!='':
@@ -529,7 +542,7 @@ if __name__ == '__main__':
 					rec.write("\n")
 			with open("{}_hetatom.pdb".format(pdb_id_up),'w') as hrec:
 				for k in hetatmrec:
-					if k[21] in chain:
+					if k[21] in lchain:
 						hrec.write(k)
 						hrec.write("\n")
 			hetfile=open("{}_hetatom.pdb".format(pdb_id_up)).readlines()
@@ -544,14 +557,15 @@ if __name__ == '__main__':
 				print ('</html>')
 				exit()
 			else:
-				redirectURL = "/cgi-bin/pred/%s/result.py" % randname
+				redirectURL = "/bioinfo2/cgi-bin/pcapred/%s/result.py" % randname
 				print ('Content-Type: text/html\r\n')
 				print ('<html>')
 				print ('  <head>')
 				print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
 				print ('    <title>You are going to be redirected</title>')
-
-				print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
+				print ("Please wait. Result will load here when job is done.")
+				print ("<br/>")
+				#print ("Use the following link to obtain data when the job is done: <a href='{}'>Result_page</a>".format(redirectURL))
 			combinedpdb=atomrec + hetatmrec
 			with open("{}_combined.pdb".format(pdb_id_up),'w') as crec:
 				for k in combinedpdb:
@@ -587,11 +601,11 @@ if __name__ == '__main__':
 					if round(distance,3)<3.5:
 						binres35.append(resname.strip()+str(position).strip()+"_"+protchain)
 
-			binres35=sorted(set(binres35),key=lambda x:int(x[3:-2]))
-			binres5=sorted(set(binres5),key=lambda x:int(x[3:-2]))
+			binres35=sorted(set(binres35),key=lambda x:int(x.split("_")[0][3:]))
+			binres5=sorted(set(binres5),key=lambda x:int(x.split("_")[0][3:]))
 			binlig5=set(binlig5)
-			print (binres5)
-			print (binres35)
+			#print (binres5)
+			#print (binres35)
 			if pdb_id_up=='input':
 				resultout.write("User input")
 			else:
@@ -602,6 +616,11 @@ if __name__ == '__main__':
 			resultout.write("\n")
 			binlig5=",".join(binlig5)
 			resultout.write(str(binlig5))
+
+			resultout.write("\n")
+			lchains_cons=''.join(lchain)
+			resultout.write(str(lchains_cons))
+
 			aliphatic_count_5= len([x for x in binres5 if x[:3] in ["GLY","ALA","PRO","VAL","LEU","ILE","MET"]])
 			#resultout.write(str(aliphatic_count_5))
 			p2=subprocess.Popen("./foldx --command=SequenceDetail --pdb={}_atom.pdb".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -755,9 +774,9 @@ if __name__ == '__main__':
 						copot6+=dictnor[y][5]
 			#resultout.write("\n")
 			#resultout.write(str(copot3))
-			print ("<br/>")
-			print (copot3)
-			p1=subprocess.Popen("./plipcmd -f {0}_combined.pdb -x > out_plip 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			#print ("<br/>")
+			#print (copot3)
+			p1=subprocess.Popen("/opt/websites/anaconda/bin/plipcmd -f {0}_combined.pdb -x > out_plip 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p1.wait()
 			f=open("report.xml").readlines()
 			hbplip=[]
@@ -769,7 +788,7 @@ if __name__ == '__main__':
 
 
 			hbplipl=len(hbplip)
-			p4=subprocess.Popen("obabel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			p4=subprocess.Popen("/opt/websites/anaconda/bin/babel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p4.wait()
 
 			b=open("out").readlines()[0]
@@ -780,17 +799,17 @@ if __name__ == '__main__':
 			logP=b.split()[3]
 			HBD=b.split()[4]
 			y='\''+y+'\''
-			print ('<br/>')
-			print ("Smiles:",y)
+			#print ('<br/>')
+			#print ("Smiles:",y)
 
 
-			os.system("python2.7 carb_features.py {} > out_carb 2>&1".format(y))
+			os.system("/opt/websites/anaconda/bin/python carb_features_new_rdkit.py {} > out_carb 2>&1".format(y))
 			g=open("carb_features.txt").readlines()
 			heavy_atoms=float(g[1].strip())
 
 
-			os.system("python3.7 descp.py {} > out_volume 2>&1".format(y))
-			p5=subprocess.Popen("python3.7 descp.py {} > out_volume 2>&1".format(y), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			os.system("/opt/websites/anaconda/bin/python3.7 descp.py {} > out_volume 2>&1".format(y))
+			p5=subprocess.Popen("/opt/websites/anaconda/bin/python3.7 descp.py {} > out_volume 2>&1".format(y), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			g=open("volume_out.txt").readlines()[0]
 			volume=float(g.strip())+40.0
 
@@ -838,8 +857,8 @@ if __name__ == '__main__':
 			os.system("cp ../{0}_atom.pdb {0}_atom.pdb".format(pdb_id_up))
 			os.system("cp ../{0}_hetatom.pdb {0}_hetatom.pdb".format(pdb_id_up))
 			os.system("cp ../../ad_xyz_coords.py ad_xyz_coords.py")
-			os.system("python3.7 clean_pdb.py {}_atom.pdb".format(pdb_id_up))
-			os.system("python2.7 ad_xyz_coords.py {0}_atom.clean.pdb {0}_hetatom.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}_atom.pdb".format(pdb_id_up))
+			os.system("/usr/local/bin/python2.7 ad_xyz_coords.py {0}_atom.clean.pdb {0}_hetatom.pdb".format(pdb_id_up))
 
 			with open("run.sh","w") as adfile:
 				adfile.write("./pythonsh prepare_receptor4.py -r {}_atom.clean.pdb -A 'hydrogens'".format(pdb_id_up))
@@ -856,7 +875,11 @@ if __name__ == '__main__':
 				adfile.write("\n")
 
 			p5=subprocess.Popen("sh run.sh > ad_out 2>&1", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-			p5.wait()
+			while p5.poll() is None:
+				time.sleep(5)
+				print(" ")
+				sys.stdout.flush()
+			print(" ")
 
 
 			try:
@@ -889,29 +912,29 @@ if __name__ == '__main__':
 			    print("Wrong file or file path")
 
 
-			print ("<br/>")
-			print ("Hydrogen bond count:", len(hbplip))
-			print ("<br/>")
-			print (copot3)
-			print ("<br/>")
-			print (energy_torsion_total)
-			print ("<br/>")
-			print (aliphatic_count_5)
-			print ("No of heavy atoms",heavy_atoms)
-			print ("<br/>")
-			print ("Donor",len(donor))
-			print ("<br/>")
-			print ("Acceptor",len(acceptor))
-			print ("<br/>")
-			print ("sec_struc_beta_count:",len(num))
-			print ("<br/>")
-			print ("ADT_DELG:",adt_deltag)
+			#print ("<br/>")
+			#print ("Hydrogen bond count:", len(hbplip))
+			#print ("<br/>")
+			#print (copot3)
+			#print ("<br/>")
+			#print (energy_torsion_total)
+			#print ("<br/>")
+			#print (aliphatic_count_5)
+			#print ("No of heavy atoms",heavy_atoms)
+			#print ("<br/>")
+			#print ("Donor",len(donor))
+			#print ("<br/>")
+			#print ("Acceptor",len(acceptor))
+			#print ("<br/>")
+			#print ("sec_struc_beta_count:",len(num))
+			#print ("<br/>")
+			#print ("ADT_DELG:",adt_deltag)
 			os.chdir(path)
 
 			predval= 0.513*(adt_deltag)+0.104*(hbond_donor)+0.562*(heavy_atoms)-0.174*(hbplipl)-0.008*(copot3)-0.599*(energy_torsion_total)+0.249*(sec_struc_beta_count) -0.050*(volume)+0.122*(aliphatic_count_5)-2.565
 			predval="%.2f" % predval
 			resultout.write("\n")
-			resultout.write(str(predval))
+			resultout.write(str(predval)+" ± 0.770")
 			disass= '{:.3g}'.format(math.exp(float(predval)/(0.0019*298.15)))
 			resultout.write("\n")
 			resultout.write(str(disass))
@@ -930,18 +953,19 @@ if __name__ == '__main__':
 			randname=uuid.uuid4().hex
 			path = os.path.join(dir_path, randname)
 			os.mkdir(path,0o777)
+			#os.system("chmod -R 777 {}".format(randname))
 			os.chdir(path)
 			os.system("wget 'https://files.rcsb.org/download/{}.pdb'".format(pdb_id_up))
 			os.system("cp ../foldx foldx")
 			os.system("cp ../naccess naccess")
 			os.system("cp ../plipcmd plipcmd")
 			os.system("cp ../3vvv.py 3vvv.py")
-			os.system("cp ../carb_features.py carb_features.py")
+			os.system("cp ../carb_features_new_rdkit.py carb_features_new_rdkit.py")
 			os.system("cp ../descp.py descp.py")
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 		if method==2:
@@ -956,12 +980,12 @@ if __name__ == '__main__':
 			os.system("cp ../naccess naccess")
 			os.system("cp ../plipcmd plipcmd")
 			os.system("cp ../3vvv.py 3vvv.py")
-			os.system("cp ../carb_features.py carb_features.py")
+			os.system("cp ../carb_features_new_rdkit.py carb_features_new_rdkit.py")
 			os.system("cp ../descp.py descp.py")
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -974,7 +998,7 @@ if __name__ == '__main__':
 				i=i.rstrip()
 				if i[0:4]=='ATOM' and i[21] in chain:
 					atomrec.append(i)
-				elif i[0:6]=='HETATM' and i[21] in chain and i[17:20].strip() not in ions_list:
+				elif i[0:6]=='HETATM' and i[21] in lchain and i[17:20].strip() not in ions_list:
 					if sugar=='':
 						hetatmrec.append(i)
 					elif sugar!='':
@@ -986,7 +1010,7 @@ if __name__ == '__main__':
 					rec.write("\n")
 			with open("{}_hetatom.pdb".format(pdb_id_up),'w') as hrec:
 				for k in hetatmrec:
-					if k[21] in chain:
+					if k[21] in lchain:
 						hrec.write(k)
 						hrec.write("\n")
 			hetfile=open("{}_hetatom.pdb".format(pdb_id_up)).readlines()
@@ -1001,14 +1025,14 @@ if __name__ == '__main__':
 				print ('</html>')
 				exit()
 			else:
-				redirectURL = "/cgi-bin/pred/%s/result.py" % randname
+				redirectURL = "/bioinfo2/cgi-bin/pcapred/%s/result.py" % randname
 				print ('Content-Type: text/html\r\n')
 				print ('<html>')
 				print ('  <head>')
 				print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
 				print ('    <title>You are going to be redirected</title>')
 
-				print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
+				#print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
 			combinedpdb=atomrec + hetatmrec
 			with open("{}_combined.pdb".format(pdb_id_up),'w') as crec:
 				for k in combinedpdb:
@@ -1044,11 +1068,11 @@ if __name__ == '__main__':
 					if round(distance,3)<3.5:
 						binres35.append(resname.strip()+str(position).strip()+"_"+protchain)
 
-			binres35=sorted(set(binres35),key=lambda x:int(x[3:-2]))
-			binres5=sorted(set(binres5),key=lambda x:int(x[3:-2]))
+			binres35=sorted(set(binres35),key=lambda x:int(x.split("_")[0][3:]))
+			binres5=sorted(set(binres5),key=lambda x:int(x.split("_")[0][3:]))
 			binlig5=set(binlig5)
-			print (binres5)
-			print (binres35)
+			#print (binres5)
+			#print (binres35)
 			if pdb_id_up=='input':
 				resultout.write("User input")
 			else:
@@ -1060,12 +1084,15 @@ if __name__ == '__main__':
 			binlig5=",".join(binlig5)
 			resultout.write(str(binlig5))
 
+			resultout.write("\n")
+			lchains_cons=''.join(lchain)
+			resultout.write(str(lchains_cons))
 
 			aromatic_count_35= len([x for x in binres35 if x[:3] in ['PHE','TYR','TRP','HIS']])
-			print ("aromatic_count_35:",aromatic_count_35)
+			#print ("aromatic_count_35:",aromatic_count_35)
 
 
-			p4=subprocess.Popen("obabel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			p4=subprocess.Popen("/opt/websites/anaconda/bin/babel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p4.wait()
 
 			b=open("out").readlines()[0]
@@ -1076,18 +1103,18 @@ if __name__ == '__main__':
 			logP=b.split()[3]
 			HBD=b.split()[4]
 			y='\''+y+'\''
-			print ('<br/>')
-			print ("Smiles:",y)
-			print ('<br/>')			
-			print ('Molecular weight:',MW)
-			os.system("python2.7 carb_features.py {} > out_carb 2>&1".format(y))
+			#print ('<br/>')
+			#print ("Smiles:",y)
+			#print ('<br/>')			
+			#print ('Molecular weight:',MW)
+			os.system("/opt/websites/anaconda/bin/python3.7 carb_features_new_rdkit.py {} > out_carb 2>&1".format(y))
 			g=open("carb_features.txt").readlines()
 			rota_bonds=float(g[0])
 			ohnh=float(g[2])
-			print ("<br/>")
-			print (rota_bonds)
-			print("<br/>")
-			print (ohnh)
+			#print ("<br/>")
+			#print (rota_bonds)
+			#print("<br/>")
+			#print (ohnh)
 
 			allproatms=['O-', 'N+', 'C', 'O', 'N', 'S']
 			allhetatms=['C', 'F', 'H', 'CL', 'O', 'N', 'P', 'S']
@@ -1195,8 +1222,8 @@ if __name__ == '__main__':
 						copot6+=dictnor[y][5]
 			selec_contact=['N-C']
 			c_nc=contcombo.count('N'+"-"+'C')
-			print ("<br/>")
-			print (c_nc)
+			#print ("<br/>")
+			#print (c_nc)
 
 			p2=subprocess.Popen("./foldx --command=SequenceDetail --pdb={}_atom.pdb".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p2.wait()
@@ -1246,8 +1273,8 @@ if __name__ == '__main__':
 			for n in m:
 				n=n.split("\t")
 				backHbond.append(float(n[9]))
-			print ("<br/>")
-			print ("backHbond:",sum(backHbond))
+			#print ("<br/>")
+			#print ("backHbond:",sum(backHbond))
 			backhnond=sum(backHbond)
 			p3=subprocess.Popen("./naccess {}_atom.pdb".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p3.wait()
@@ -1293,8 +1320,8 @@ if __name__ == '__main__':
 							mainchain_rel+=mnchain_rel
 			# print (pdb_id_up,allatomcount,totalside,mainchain)
 			# print (pdb_id_up,allatomcount_rel,totalside_rel,mainchain_rel)
-			print ("<br/>")
-			print ("absoulte_asa_difference:",totalside)
+			#print ("<br/>")
+			#print ("absoulte_asa_difference:",totalside)
 		## prop_direct_5 (values obtained from the file itself)
 			occurence_5=[j[17:20].strip()+j[22:26].strip()+'_'+j[21] for j in atomrec]
 
@@ -1304,21 +1331,21 @@ if __name__ == '__main__':
 
 			occudict = dict(zip(amino, resoccu))
 
-			binres5res=[x[:3] for x in binres5]
+			binres5res=[x[:3] for x in binres5 if x in amino]
 			# print (binres5res)
 			kk=0
 			for z in set(binres5res):
 				val=(float(binres5res.count(z))/float(occudict[z]))/(float(len(binres5res))/float(sum(resoccu)))
 				kk+=float(binres5res.count(z))*val
 			prop_direct_5=kk
-			print ("<br/>")
-			print ("prop_direct_5:",prop_direct_5)
+			#print ("<br/>")
+			#print ("prop_direct_5:",prop_direct_5)
 
 
 			predval= 0.762*(aromatic_count_35) -0.008*(MW) -0.065*(c_nc) +0.409*(rota_bonds) -0.024*(totalside) +0.556*(ohnh) -0.112*(prop_direct_5) -0.166*(backhnond)-3.077
 			predval="%.2f" % predval
 			resultout.write("\n")
-			resultout.write(str(predval))
+			resultout.write(str(predval)+" ± 0.517")
 			disass= '{:.3g}'.format(math.exp(float(predval)/(0.0019*298.15)))
 			resultout.write("\n")
 			resultout.write(str(disass))
@@ -1337,18 +1364,19 @@ if __name__ == '__main__':
 			randname=uuid.uuid4().hex
 			path = os.path.join(dir_path, randname)
 			os.mkdir(path,0o777)
+			#os.system("chmod -R 777 {}".format(randname))
 			os.chdir(path)
 			os.system("wget 'https://files.rcsb.org/download/{}.pdb'".format(pdb_id_up))
 			os.system("cp ../foldx foldx")
 			os.system("cp ../naccess naccess")
 			os.system("cp ../plipcmd plipcmd")
 			os.system("cp ../3vvv.py 3vvv.py")
-			os.system("cp ../carb_features.py carb_features.py")
+			os.system("cp ../carb_features_new_rdkit.py carb_features_new_rdkit.py")
 			os.system("cp ../descp.py descp.py")
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 		elif method==2:
@@ -1363,12 +1391,12 @@ if __name__ == '__main__':
 			os.system("cp ../naccess naccess")
 			os.system("cp ../plipcmd plipcmd")
 			os.system("cp ../3vvv.py 3vvv.py")
-			os.system("cp ../carb_features.py carb_features.py")
+			os.system("cp ../carb_features_new_rdkit.py carb_features_new_rdkit.py")
 			os.system("cp ../descp.py descp.py")
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -1408,14 +1436,14 @@ if __name__ == '__main__':
 				print ('</html>')
 				exit()
 			else:
-				redirectURL = "/cgi-bin/pred/%s/result.py" % randname
+				redirectURL = "/bioinfo2/cgi-bin/pcapred/%s/result.py" % randname
 				print ('Content-Type: text/html\r\n')
 				print ('<html>')
 				print ('  <head>')
-				#print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
+				print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
 				print ('    <title>You are going to be redirected</title>')
 
-				print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
+				#print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
 			combinedpdb=atomrec + hetatmrec
 			with open("{}_combined.pdb".format(pdb_id_up),'w') as crec:
 				for k in combinedpdb:
@@ -1451,11 +1479,11 @@ if __name__ == '__main__':
 					if round(distance,3)<3.5:
 						binres35.append(resname.strip()+str(position).strip()+"_"+protchain)
 
-			binres35=sorted(set(binres35),key=lambda x:int(x[3:-2]))
-			binres5=sorted(set(binres5),key=lambda x:int(x[3:-2]))
+			binres35=sorted(set(binres35),key=lambda x:int(x.split("_")[0][3:]))
+			binres5=sorted(set(binres5),key=lambda x:int(x.split("_")[0][3:]))
 			binlig5=set(binlig5)
-			print (binres5)
-			print (binres35)
+			#print (binres5)
+			#print (binres35)
 			if pdb_id_up=='input':
 				resultout.write("User input")
 			else:
@@ -1464,17 +1492,16 @@ if __name__ == '__main__':
 			chains_cons=''.join(chain)
 			resultout.write(str(chains_cons))
 			resultout.write("\n")
-
 			binlig5=",".join(binlig5)
 			resultout.write(str(binlig5))
-			resultout.write("\n")
 
+			resultout.write("\n")
 			lchains_cons=''.join(lchain)
 			resultout.write(str(lchains_cons))
 
 			binres5count=len(binres5)
-			print ("<br/>")
-			print (binres5count)
+			#print ("<br/>")
+			#print (binres5count)
 			#resultout.write("\n")
 			#resultout.write(str(binres5count))
 
@@ -1506,12 +1533,12 @@ if __name__ == '__main__':
 			            acceptor.append(k)
 			merge=donor+acceptor
 			hbond_acceptor=len(acceptor)
-			print ("<br/>")
-			print (hbond_acceptor)
+			#print ("<br/>")
+			#print (hbond_acceptor)
 
 
 
-			p4=subprocess.Popen("obabel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			p4=subprocess.Popen("/opt/websites/anaconda/bin/babel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p4.wait()
 
 			b=open("out").readlines()[0]
@@ -1521,18 +1548,19 @@ if __name__ == '__main__':
 
 			HBD=float(b.split()[4])
 			y='\''+y+'\''
-			print ('<br/>')
-			print ("Smiles:",y)
-			print ('<br/>')
-			print ('Hydrogen Bond Donors:',HBD)
-			os.system("python2.7 carb_features.py {} > out_carb 2>&1".format(y))
+			#print ('<br/>')
+			#print ("Smiles:",y)
+			#print ('<br/>')
+			#print ('Hydrogen Bond Donors:',HBD)
+
+			os.system("/opt/websites/anaconda/bin/python carb_features_new_rdkit.py {} > out_carb 2>&1".format(y))
 			g=open("carb_features.txt").readlines()
 			fraction_sp3=float(g[3])
-			print ('<br/>')
-			print ("fraction_sp3:",fraction_sp3)
+			#print ('<br/>')
+			#print ("fraction_sp3:",fraction_sp3)
 			rota_bonds=float(g[0])
-			print ("<br/>")
-			print (rota_bonds)
+			#print ("<br/>")
+			#print (rota_bonds)
 
 			allproatms=['O-', 'N+', 'C', 'O', 'N', 'S']
 			allhetatms=['C', 'F', 'H', 'CL', 'O', 'N', 'P', 'S']
@@ -1629,8 +1657,8 @@ if __name__ == '__main__':
 						copot6+=dictnor[y][5]
 
 			c_o_c=contcombo.count('O-'+"-"+'C')
-			print ("<br/>")
-			print (c_o_c)
+			#print ("<br/>")
+			#print (c_o_c)
 
 
 
@@ -1673,8 +1701,8 @@ if __name__ == '__main__':
 							mnchain_rel_35=float(asa[5])-float(asaw_lig[5])
 							mainchain_rel_35+=mnchain_rel_35
 			# print (pdb_id_up,allatomcount_rel_35,totalside_rel_35,mainchain_rel_35)
-			print ("<br/>")
-			print ("rel_diff_asa_allatoms_35:",allatomcount_rel_35)
+			#print ("<br/>")
+			#print ("rel_diff_asa_allatoms_35:",allatomcount_rel_35)
 
 
 
@@ -1704,18 +1732,18 @@ if __name__ == '__main__':
 			for n in m:
 				n=n.split("\t")
 				total.append(float(n[8]))
-			print ("<br/>")
-			print ("total:",sum(total))
+			#print ("<br/>")
+			#print ("total:",sum(total))
 
 			aromatic_count_5= len([x for x in binres5 if x[:3] in ['PHE','TYR','TRP','HIS']])
-			print ("aromatic_count_5:",aromatic_count_5)
+			#print ("aromatic_count_5:",aromatic_count_5)
 
 
 
 			predval= -0.379*(binres5count) +0.218*(hbond_acceptor) +2.726*(fraction_sp3) +0.380*(HBD) -0.029*(c_o_c) -0.192*(rota_bonds) +0.016*(allatomcount_rel_35) +0.091*sum(total) -0.144*(aromatic_count_5) -10.131
 			predval="%.2f" % predval
 			resultout.write("\n")
-			resultout.write(str(predval))
+			resultout.write(str(predval)+" ± 0.482")
 			disass= '{:.3g}'.format(math.exp(float(predval)/(0.0019*298.15)))
 			resultout.write("\n")
 			resultout.write(str(disass))
@@ -1737,10 +1765,12 @@ if __name__ == '__main__':
 			randname=uuid.uuid4().hex
 			path = os.path.join(dir_path, randname)
 			os.mkdir(path,0o777)
+			#os.system("chmod -R 777 {}".format(randname))
 			os.chdir(path)
 			os.system("wget 'https://files.rcsb.org/download/{}.pdb'".format(pdb_id_up))
 			os.system("cp ../foldx foldx")
 			os.system("cp ../naccess naccess")
+			os.system("chmod -R 777 naccess")
 			os.system("cp ../plipcmd plipcmd")
 			os.system("cp ../3vvv.py 3vvv.py")
 			os.system("cp ../carb_features.py carb_features.py")
@@ -1748,7 +1778,7 @@ if __name__ == '__main__':
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 		elif method==2:
@@ -1768,7 +1798,7 @@ if __name__ == '__main__':
 			os.system("cp ../hbplus hbplus")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -1781,7 +1811,7 @@ if __name__ == '__main__':
 				i=i.rstrip()
 				if i[0:4]=='ATOM' and i[21] in chain:
 					atomrec.append(i)
-				elif i[0:6]=='HETATM' and i[21] in chain and i[17:20].strip() not in ions_list:
+				elif i[0:6]=='HETATM' and i[21] in lchain and i[17:20].strip() not in ions_list:
 					if sugar=='':
 						hetatmrec.append(i)
 					elif sugar!='':
@@ -1794,7 +1824,7 @@ if __name__ == '__main__':
 					rec.write("\n")
 			with open("{}_hetatom.pdb".format(pdb_id_up),'w') as hrec:
 				for k in hetatmrec:
-					if k[21] in chain:
+					if k[21] in lchain:
 						hrec.write(k)
 						hrec.write("\n")
 			hetfile=open("{}_hetatom.pdb".format(pdb_id_up)).readlines()
@@ -1809,14 +1839,14 @@ if __name__ == '__main__':
 				print ('</html>')
 				exit()
 			else:
-				redirectURL = "/cgi-bin/pred/%s/result.py" % randname
+				redirectURL = "/bioinfo2/cgi-bin/pcapred/%s/result.py" % randname
 				print ('Content-Type: text/html\r\n')
 				print ('<html>')
 				print ('  <head>')
 				print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
 				print ('    <title>You are going to be redirected</title>')
 
-				print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
+				#print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
 			combinedpdb=atomrec + hetatmrec
 			with open("{}_combined.pdb".format(pdb_id_up),'w') as crec:
 				for k in combinedpdb:
@@ -1824,8 +1854,8 @@ if __name__ == '__main__':
 					crec.write("\n")
 			binres35=[]
 			binres5=[]
-			print (binres5)
-			print (binres35)
+			#print (binres5)
+			#print (binres35)
 			binlig5=[]
 			for u in hetatmrec:
 				u=u.rstrip()
@@ -1854,11 +1884,11 @@ if __name__ == '__main__':
 					if round(distance,3)<3.5:
 						binres35.append(resname.strip()+str(position).strip()+"_"+protchain)
 
-			binres35=sorted(set(binres35),key=lambda x:int(x[3:-2]))
-			binres5=sorted(set(binres5),key=lambda x:int(x[3:-2]))
+			binres35=sorted(set(binres35),key=lambda x:int(x.split("_")[0][3:]))
+			binres5=sorted(set(binres5),key=lambda x:int(x.split("_")[0][3:]))
 			binlig5=set(binlig5)
-			print (binres5)
-			print (binres35)
+			#print (binres5)
+			#print (binres35)
 			if pdb_id_up=='input':
 				resultout.write("User input")
 			else:
@@ -1870,7 +1900,9 @@ if __name__ == '__main__':
 			binlig5=",".join(binlig5)
 			resultout.write(str(binlig5))
 
-
+			resultout.write("\n")
+			lchains_cons=''.join(lchain)
+			resultout.write(str(lchains_cons))
 
 			p2=subprocess.Popen("./foldx --command=SequenceDetail --pdb={}_atom.pdb".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p2.wait()
@@ -1897,21 +1929,21 @@ if __name__ == '__main__':
 				n=n.split("\t")
 				energy_SolvP.append(float(n[13]))
 				Sidechain_Accessibility.append(float(n[32]))
-			print ("<br/>")
-			print ("energy_SolvP:",sum(energy_SolvP))
-			print ("<br/>")
-			print ("Sidechain_Accessibility:",sum(Sidechain_Accessibility))
-			p4=subprocess.Popen("obabel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+			#print ("<br/>")
+			#print ("energy_SolvP:",sum(energy_SolvP))
+			#print ("<br/>")
+			#print ("Sidechain_Accessibility:",sum(Sidechain_Accessibility))
+			p4=subprocess.Popen("/opt/websites/anaconda/bin/babel -ipdb {0}_hetatom.pdb -osmi --append 'MW logP HBD' > out 2>&1".format(pdb_id_up), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 			p4.wait()
 			b=open("out").readlines()[0]
 			#print (b.split()[0])
 			y=str(b.split()[0])
 			logP=float(b.split()[3])
 			y='\''+y+'\''
-			print ('<br/>')
-			print ("Smiles:",y)
-			print ('<br/>')
-			print ('miLogP:',logP)
+			#print ('<br/>')
+			#print ("Smiles:",y)
+			#print ('<br/>')
+			#print ('miLogP:',logP)
 
 
 
@@ -1960,18 +1992,18 @@ if __name__ == '__main__':
 			# print (pdb_id_up,allatomcount,totalside,mainchain)
 			# print (pdb_id_up,allatomcount_rel,totalside_rel,mainchain_rel)
 
-			print ("relative_asa_difference:",allatomcount_rel)
-			print ("<br/>")
-			print ("relative_asa_difference_sidechain:",totalside_rel)
+			#print ("relative_asa_difference:",allatomcount_rel)
+			#print ("<br/>")
+			#print ("relative_asa_difference_sidechain:",totalside_rel)
 
 
 			predval= -0.615*sum(Sidechain_Accessibility)+0.167*sum(energy_SolvP)+1.436*(logP)-0.085*(allatomcount_rel)+0.056*(totalside_rel)+3.898
 			predval="%.2f" % predval
 			resultout.write("\n")
-			resultout.write(str(predval))
-			print ("energy_SolvP:",sum(energy_SolvP))
-			print ("<br/>")
-			print ("Sidechain_Accessibility:",sum(Sidechain_Accessibility))
+			resultout.write(str(predval)+" ± 0.837")
+			#print ("energy_SolvP:",sum(energy_SolvP))
+			#print ("<br/>")
+			#print ("Sidechain_Accessibility:",sum(Sidechain_Accessibility))
 			disass= '{:.3g}'.format(math.exp(float(predval)/(0.0019*298.15)))
 			resultout.write("\n")
 			resultout.write(str(disass))
@@ -1991,12 +2023,13 @@ if __name__ == '__main__':
 			randname=uuid.uuid4().hex
 			path = os.path.join(dir_path, randname)
 			os.mkdir(path,0o777)
+			#os.system("chmod -R 777 {}".format(randname))
 			os.chdir(path)
 			os.system("wget 'https://files.rcsb.org/download/{}.pdb'".format(pdb_id_up))
 			os.system("cp ../foldx foldx")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 		elif method==2:
@@ -2010,7 +2043,7 @@ if __name__ == '__main__':
 			os.system("cp ../foldx foldx")
 			os.system("cp ../style4.css style4.css")
 			os.system("cp ../clean_pdb.py clean_pdb.py")
-			os.system("python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
+			os.system("/opt/websites/anaconda/bin/python3.7 clean_pdb.py {}.pdb".format(pdb_id_up))
 			os.system("cp ../index.txt index.txt")
 			os.system("cp ../footer.txt footer.txt")
 
@@ -2022,7 +2055,7 @@ if __name__ == '__main__':
 				i=i.rstrip()
 				if i[0:4]=='ATOM' and i[21] in chain:
 					atomrec.append(i)
-				elif i[0:6]=='HETATM' and i[21] in chain and i[17:20].strip() not in ions_list:
+				elif i[0:6]=='HETATM' and i[21] in lchain and i[17:20].strip() not in ions_list:
 					if sugar=='':
 						hetatmrec.append(i)
 					elif sugar!='':
@@ -2034,12 +2067,14 @@ if __name__ == '__main__':
 					rec.write("\n")
 			with open("{}_hetatom.pdb".format(pdb_id_up),'w') as hrec:
 				for k in hetatmrec:
-					if k[21] in chain:
+					if k[21] in lchain:
 						hrec.write(k)
 						hrec.write("\n")
 			hetfile=open("{}_hetatom.pdb".format(pdb_id_up)).readlines()
 			if len(hetfile)==0:
 				print ('Content-Type: text/html\r\n')
+				print (" ")
+				print ('')
 				print ('<html>')
 				print ('  <head>')
 				print ("No ligand found in interaction")
@@ -2049,14 +2084,14 @@ if __name__ == '__main__':
 				print ('</html>')
 				exit()
 			else:
-				redirectURL = "/cgi-bin/pred/%s/result.py" % randname
+				redirectURL = "/bioinfo2/cgi-bin/pcapred/%s/result.py" % randname
 				print ('Content-Type: text/html\r\n')
 				print ('<html>')
 				print ('  <head>')
-				#print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
+				print ('    <meta http-equiv="refresh" content="0;url=%s" />' % redirectURL)
 				print ('    <title>You are going to be redirected</title>')
 
-				print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
+				#print ("Use this url to obtain data: <a href='{}'>Result_page</a>".format(redirectURL))
 			combinedpdb=atomrec + hetatmrec
 			with open("{}_combined.pdb".format(pdb_id_up),'w') as crec:
 				for k in combinedpdb:
@@ -2092,18 +2127,24 @@ if __name__ == '__main__':
 					if round(distance,3)<3.5:
 						binres35.append(resname.strip()+str(position).strip()+"_"+chain)
 
-			binres35=sorted(set(binres35),key=lambda x:int(x[3:-2]))
-			binres5=sorted(set(binres5),key=lambda x:int(x[3:-2]))
+			binres35=sorted(set(binres35),key=lambda x:int(x.split("_")[0][3:]))
+			binres5=sorted(set(binres5),key=lambda x:int(x.split("_")[0][3:]))
 			binlig5=set(binlig5)
 			if pdb_id_up=='input':
 				resultout.write("User input")
 			else:
 				resultout.write(pdb_id_up)
 			resultout.write("\n")
+			#print (chain)
 			resultout.write(str(chain))
 			resultout.write("\n")
+			#print (binlig5)
 			binlig5=",".join(binlig5)
 			resultout.write(str(binlig5))
+
+			resultout.write("\n")
+			lchains_cons=''.join(lchain)
+			resultout.write(str(lchains_cons))
 
 		# # #######################################               FoldX             ###################################################
 
@@ -2173,10 +2214,14 @@ if __name__ == '__main__':
 			num=0
 			i=i.rstrip().split("\t")                                    
 			for j in binres5:
-			    num+=dict1[threeoneaa[j[:3]]]
+				if j[:3] in threeoneaa:
+				    num+=dict1[threeoneaa[j[:3]]]
 
 		# ######################################################        Residue Depth              ######################################################
-
+			def Convertst(string): 
+				list1=[] 
+				list1[:0]=string 
+				return list1  
 			from Bio.PDB.ResidueDepth import ResidueDepth
 			from Bio.PDB.PDBParser import PDBParser
 			from Bio.PDB.ResidueDepth import get_surface
@@ -2184,26 +2229,30 @@ if __name__ == '__main__':
 			from Bio.PDB.ResidueDepth import residue_depth
 			binres=binres5
 			chains=[i.split("_")[1] for i in binres]
+			for rs in chains:
+				break
 			res_dep=0
-			for j in set(chains):
+			print (rs)
+			print (Convertst(rs))
+			for j in Convertst(rs):
 			    resnum=[int(i.split("_")[0][3:]) for i in binres if j==i.split("_")[1]]
 			    parser = PDBParser()
 			    structure = parser.get_structure("{0}", "{0}_atom.pdb".format(pdb_id_up))
 			    model = structure[0]
 			    rd = ResidueDepth(model)
 			    surface = get_surface(model)
-			    chain = model["{}".format(j)]
+			    rschain = model["{}".format(j)]
 			    resdepth=0
 			    ax=[]
 			    for a in resnum:
-			        res = chain[a]
+			        res = rschain[a]
 			        rd = residue_depth(res, surface)
 			        ax.append(rd)
 			    res_dep+=sum(ax)
 			predval= 0.20665088*res_dep-0.00410831*num-0.22996925*sum(electro)-0.00685319*sum(energy_SolvP)-4.093052692485966
 			predval="%.2f" % predval
 			resultout.write("\n")
-			resultout.write(str(predval))
+			resultout.write(str(predval)+" ± 0.529")
 			disass= '{:.3g}'.format(math.exp(float(predval)/(0.0019*298.15)))
 			resultout.write("\n")
 			resultout.write(str(disass))
@@ -2215,7 +2264,7 @@ if __name__ == '__main__':
 timetaken=timeit.default_timer() - start
 
 with open("result.py", "w") as polyout:
-	polyout.write("""#!/usr/bin/env python3.7\nimport cgi\nimport cgitb; cgitb.enable()\nprint ('Content-Type: text/html\\r\\n')\n""")
+	polyout.write("""#!/opt/websites/anaconda/bin/python3.7\nimport cgi\nimport cgitb; cgitb.enable()\nprint ('Content-Type: text/html\\r\\n')\n""")
 	g=open("index.txt").readlines()
 	for gg in g:
 		gg=gg.rstrip()
